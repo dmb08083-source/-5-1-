@@ -182,14 +182,40 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            restoreLocalSession(); // 페이지 로드 시 기존 세션 확인 및 복구
             startTimer();
             listenFirebaseEvents();
         });
+
+        // 로컬 저장소 세션 복구 함수 (새로고침 이어서 하기)
+        function restoreLocalSession() {
+            const savedName = localStorage.getItem('wg_student_name');
+            const savedAttempts = localStorage.getItem('wg_my_attempts');
+
+            if (savedName) {
+                studentName = savedName;
+                document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
+                document.getElementById('nameModal').classList.add('hidden');
+
+                if (savedAttempts) {
+                    try {
+                        myAttempts = JSON.parse(savedAttempts);
+                        renderMyAttempts();
+                    } catch (e) {
+                        myAttempts = [];
+                    }
+                }
+            }
+        }
 
         function saveStudentName() {
             const val = document.getElementById('studentNameInput').value.trim();
             if (!val) return;
             studentName = val;
+            
+            // 로컬 저장소에 저장
+            localStorage.setItem('wg_student_name', studentName);
+
             document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
             document.getElementById('nameModal').classList.add('hidden');
 
@@ -209,6 +235,10 @@
             timer = 0;
             isGameEnded = false;
             isGameStartedByTeacher = false;
+
+            // 로컬 저장소 캐시 삭제
+            localStorage.removeItem('wg_student_name');
+            localStorage.removeItem('wg_my_attempts');
 
             document.getElementById('studentNameInput').value = "";
             document.getElementById('studentBadge').innerText = "참가자: 이름 설정 필요";
@@ -252,6 +282,11 @@
             e.preventDefault();
             if (isGameEnded || !isGameStartedByTeacher) return;
 
+            if (!studentName) {
+                document.getElementById('nameModal').classList.remove('hidden');
+                return;
+            }
+
             const input = document.getElementById('wordInput');
             const word = input.value.trim();
             if (!word) return;
@@ -277,6 +312,10 @@
 
             db.ref('submissions').push(submissionData);
             myAttempts.push(submissionData);
+            
+            // 시도 기록 로컬 저장소 업데이트
+            localStorage.setItem('wg_my_attempts', JSON.stringify(myAttempts));
+
             input.value = '';
 
             if (score === 100.0) {
