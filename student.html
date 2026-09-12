@@ -150,7 +150,6 @@
         let isGameEnded = false;
         let isGameStartedByTeacher = false;
 
-        // 효과음 사운드 엔진 (Web Audio API)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -194,9 +193,32 @@
             document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
             document.getElementById('nameModal').classList.add('hidden');
 
+            db.ref('presence/' + encodeURIComponent(studentName)).set({
+                name: studentName,
+                time: Date.now()
+            });
+
             if (!isGameStartedByTeacher) {
                 document.getElementById('waitStartModal').classList.remove('hidden');
             }
+        }
+
+        // 전체 초기화 및 이름 입력 팝업으로 강제 복귀
+        function forceResetToNameModal() {
+            studentName = "";
+            myAttempts = [];
+            timer = 0;
+            isGameEnded = false;
+            isGameStartedByTeacher = false;
+
+            document.getElementById('studentNameInput').value = "";
+            document.getElementById('studentBadge').innerText = "참가자: 이름 설정 필요";
+            document.getElementById('waitStartModal').classList.add('hidden');
+            document.getElementById('winModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('nameModal').classList.remove('hidden');
+
+            renderMyAttempts();
         }
 
         function startTimer() {
@@ -269,7 +291,6 @@
         }
 
         function listenFirebaseEvents() {
-            // 교사 게임 시작 여부 감지
             db.ref('gameState/isStarted').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     isGameStartedByTeacher = snapshot.val();
@@ -311,14 +332,10 @@
                 }
             });
 
+            // 교사 새로고침/리셋 감지 ➔ 이름 입력 화면으로 초기화
             db.ref('gameState/resetTrigger').on('value', (snapshot) => {
                 if (snapshot.exists()) {
-                    isGameEnded = false;
-                    myAttempts = [];
-                    timer = 0;
-                    document.getElementById('winModal').classList.add('hidden');
-                    document.getElementById('gameOverModal').classList.add('hidden');
-                    renderMyAttempts();
+                    forceResetToNameModal();
                 }
             });
         }
