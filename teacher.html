@@ -16,123 +16,201 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
     </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6">
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 flex flex-col justify-center">
 
-    <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
-        <div>
-            <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/20">
-                    <i data-lucide="activity" class="w-6 h-6"></i>
+    <!-- [STEP 1] 비밀 단어 단독 입력 모달 -->
+    <div id="step1Modal" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl w-full max-w-md space-y-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-xl"></div>
+            <div class="text-center space-y-2">
+                <div class="bg-blue-600/20 w-14 h-14 rounded-2xl flex items-center justify-center mx-auto text-blue-400 mb-3 border border-blue-500/30">
+                    <i data-lucide="key-round" class="w-7 h-7"></i>
                 </div>
+                <h2 class="text-2xl font-bold text-white">오늘의 비밀 단어 설정</h2>
+                <p class="text-xs text-slate-400">수업 시간에 학생들이 추리할 정답 단어를 입력해 주세요.</p>
+            </div>
+
+            <form onsubmit="handleStep1Submit(event)" class="space-y-4">
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                        단어 유사도 추리 게임 
-                        <span class="text-blue-500 text-sm font-normal bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 rounded-full">교사 실시간 중계 대시보드</span>
-                    </h1>
-                    <p class="text-slate-400 text-xs sm:text-sm mt-0.5">
-                        Firebase 연동 30명 전자칠판 실시간 통합 컨트롤 파널
-                    </p>
+                    <label class="block text-xs text-slate-400 mb-2 font-medium">정답 단어 (Target Word)</label>
+                    <input 
+                        type="text" 
+                        id="secretWordInput" 
+                        placeholder="예: 인공지능, 빅데이터, 악플" 
+                        required 
+                        autocomplete="off"
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 transition-all"
+                    />
                 </div>
+                <button 
+                    type="submit" 
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 text-sm active:scale-95"
+                >
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    입력 완료 (학생 대기실로 이동)
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- [STEP 2] 학생 접속 현황 대기실 모달 -->
+    <div id="step2Modal" class="hidden fixed inset-0 bg-slate-950 z-40 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl w-full max-w-2xl space-y-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-emerald-500/20 p-2.5 rounded-xl text-emerald-400">
+                        <i data-lucide="users" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">학생 접속 대기실</h2>
+                        <p class="text-xs text-slate-400">구글 클래스룸 링크로 학생들이 입장하고 있습니다.</p>
+                    </div>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 px-4 py-2 rounded-xl text-right">
+                    <span class="text-xs text-slate-400 block">현재 입장 인원</span>
+                    <span id="waitingCount" class="text-xl font-extrabold text-emerald-400 font-mono">0명</span>
+                </div>
+            </div>
+
+            <!-- 접속 학생 이름 목록 카드 레인 -->
+            <div class="space-y-2">
+                <span class="text-xs text-slate-400 font-medium">입장한 학생 목록</span>
+                <div id="studentListContainer" class="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-4 min-h-[160px] max-h-[220px] overflow-y-auto custom-scrollbar flex flex-wrap gap-2 content-start">
+                    <p id="emptyStudentText" class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하면 이곳에 이름이 실시간으로 표시됩니다...</p>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button 
+                    onclick="handleStartGame()" 
+                    class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-base active:scale-95"
+                >
+                    <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+                    게임 시작 및 대시보드 이동
+                </button>
             </div>
         </div>
+    </div>
 
-        <div class="flex items-center gap-4 bg-slate-900 border border-slate-800 px-5 py-3 rounded-2xl shadow-inner">
-            <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-400 font-medium">현재 목표 단어:</span>
-                <span id="targetWordDisplay" class="font-bold text-blue-400 text-xl tracking-wider font-mono">
-                    🔒 ****
-                </span>
-            </div>
-            <div class="h-4 w-px bg-slate-800"></div>
-            <div class="flex items-center gap-2">
-                <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="statusText" class="text-xs font-semibold text-slate-300">실시간 연동됨</span>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div class="lg:col-span-5 space-y-6">
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center gap-2 mb-4 text-blue-400">
-                    <i data-lucide="key-round" class="w-5 h-5"></i>
-                    <h2 class="font-semibold text-base text-slate-100">비밀 단어(Target Word) 설정</h2>
-                </div>
-                <form onsubmit="handleSetTargetWord(event)" class="space-y-3">
-                    <input type="text" id="targetInput" placeholder="예: 인공지능, 빅데이터, 악플" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20 active:scale-95">
-                        <i data-lucide="send" class="w-4 h-4"></i>
-                        게임 시작 / 비밀 단어 저장
-                    </button>
-                </form>
-            </section>
-
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center gap-2 mb-4 text-amber-400">
-                    <i data-lucide="lightbulb" class="w-5 h-5"></i>
-                    <h2 class="font-semibold text-base text-slate-100">학생 화면 힌트 실시간 전송</h2>
-                </div>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="sendHint('length')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 글자 수 힌트 전송
-                        </button>
-                        <button onclick="sendHint('initial')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 초성 힌트 전송
-                        </button>
+    <!-- [STEP 3] 메인 실시간 대시보드 (기존 대시보드) -->
+    <div id="dashboardView" class="hidden max-w-7xl mx-auto w-full">
+        <header class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/20">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
                     </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="customHintInput" placeholder="예: 4차 산업혁명의 핵심 기술" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                        <button onclick="sendHint('custom')" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-medium">전송</button>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                            단어 유사도 추리 게임 
+                            <span class="text-blue-500 text-sm font-normal bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 rounded-full">교사 실시간 중계</span>
+                        </h1>
+                        <p class="text-slate-400 text-xs sm:text-sm mt-0.5">
+                            Firebase 연동 30명 전자칠판 실시간 통합 컨트롤 파널
+                        </p>
                     </div>
-                    <div id="hintBox" class="bg-amber-950/30 border border-amber-800/40 rounded-xl p-3.5 text-xs text-amber-200 space-y-1.5">
-                        <span class="font-semibold text-amber-400 block mb-1">전송된 힌트 목록:</span>
-                        <div id="hintTextList" class="space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar">
-                            <p class="text-slate-500 text-[11px]">전송된 힌트가 없습니다.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-slate-900 border border-slate-800 px-5 py-3 rounded-2xl shadow-inner">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-slate-400 font-medium">현재 목표 단어:</span>
+                    <span id="targetWordDisplay" class="font-bold text-blue-400 text-xl tracking-wider font-mono">🔒 ****</span>
+                </div>
+                <div class="h-4 w-px bg-slate-800"></div>
+                <div class="flex items-center gap-2">
+                    <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="statusText" class="text-xs font-semibold text-slate-300">게임 진행 중</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-5 space-y-6">
+                <!-- 비밀 단어 변경 -->
+                <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center gap-2 mb-4 text-blue-400">
+                        <i data-lucide="key-round" class="w-5 h-5"></i>
+                        <h2 class="font-semibold text-base text-slate-100">새 비밀 단어 변경</h2>
+                    </div>
+                    <form onsubmit="handleSetTargetWord(event)" class="space-y-3">
+                        <input type="text" id="targetInput" placeholder="변경할 단어 입력" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20 active:scale-95">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            단어 변경 및 게임 재시작
+                        </button>
+                    </form>
+                </section>
+
+                <!-- 힌트 제어 -->
+                <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center gap-2 mb-4 text-amber-400">
+                        <i data-lucide="lightbulb" class="w-5 h-5"></i>
+                        <h2 class="font-semibold text-base text-slate-100">학생 화면 힌트 실시간 전송</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="sendHint('length')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                                <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 글자 수 힌트 전송
+                            </button>
+                            <button onclick="sendHint('initial')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                                <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 초성 힌트 전송
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="customHintInput" placeholder="예: 4차 산업혁명의 핵심 기술" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                            <button onclick="sendHint('custom')" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-medium">전송</button>
+                        </div>
+                        <div id="hintBox" class="bg-amber-950/30 border border-amber-800/40 rounded-xl p-3.5 text-xs text-amber-200 space-y-1.5">
+                            <span class="font-semibold text-amber-400 block mb-1">전송된 힌트 목록:</span>
+                            <div id="hintTextList" class="space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                                <p class="text-slate-500 text-[11px]">전송된 힌트가 없습니다.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <h2 class="font-semibold text-xs uppercase text-slate-400 mb-3">게임 상태 관리</h2>
-                <div class="grid grid-cols-2 gap-3">
-                    <button id="revealBtn" onclick="revealAnswer()" class="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                        <i data-lucide="eye" class="w-4 h-4"></i> <span id="revealBtnText">정답 공개하기</span>
-                    </button>
-                    <button onclick="resetGame()" class="bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 게임 리셋
-                    </button>
-                </div>
-            </section>
-        </div>
-
-        <div class="lg:col-span-7 space-y-6">
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2.5 text-yellow-500">
-                        <i data-lucide="trophy" class="w-5 h-5"></i>
-                        <h2 class="font-semibold text-base text-slate-100">최고 유사도 랭킹 (Top 5)</h2>
+                <!-- 게임 상태 관리 -->
+                <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <h2 class="font-semibold text-xs uppercase text-slate-400 mb-3">게임 상태 관리</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="revealBtn" onclick="revealAnswer()" class="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                            <i data-lucide="eye" class="w-4 h-4"></i> <span id="revealBtnText">정답 공개하기</span>
+                        </button>
+                        <button onclick="resetGame()" class="bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 게임 리셋
+                        </button>
                     </div>
-                    <span class="text-xs text-slate-500 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> 실시간 중계 중
-                    </span>
-                </div>
-                <div id="leaderboardList" class="space-y-2.5"></div>
-            </section>
+                </section>
+            </div>
 
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2.5 text-slate-300">
-                        <i data-lucide="users" class="w-5 h-5 text-blue-400"></i>
-                        <h2 class="font-semibold text-base text-slate-100">실시간 학생 제출 로그</h2>
+            <div class="lg:col-span-7 space-y-6">
+                <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2.5 text-yellow-500">
+                            <i data-lucide="trophy" class="w-5 h-5"></i>
+                            <h2 class="font-semibold text-base text-slate-100">최고 유사도 랭킹 (Top 5)</h2>
+                        </div>
+                        <span class="text-xs text-slate-500 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> 실시간 중계 중
+                        </span>
                     </div>
-                    <span id="logCount" class="text-xs text-slate-500 font-mono">0개 기록됨</span>
-                </div>
-                <div id="logList" class="max-h-[280px] overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
-            </section>
-        </div>
-    </main>
+                    <div id="leaderboardList" class="space-y-2.5"></div>
+                </section>
+
+                <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2.5 text-slate-300">
+                            <i data-lucide="users" class="w-5 h-5 text-blue-400"></i>
+                            <h2 class="font-semibold text-base text-slate-100">실시간 학생 제출 로그</h2>
+                        </div>
+                        <span id="logCount" class="text-xs text-slate-500 font-mono">0개 기록됨</span>
+                    </div>
+                    <div id="logList" class="max-h-[280px] overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
+                </section>
+            </div>
+        </main>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -150,8 +228,9 @@
         const db = firebase.database();
 
         let submissions = [];
-        let activeTargetWord = "인공지능";
+        let activeTargetWord = "";
         let isRevealed = false;
+        let connectedStudents = new Set();
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
@@ -159,6 +238,40 @@
             listenFirebaseHints();
         });
 
+        // 1단계: 비밀 단어 입력 후 대기실로 이동
+        function handleStep1Submit(e) {
+            e.preventDefault();
+            const input = document.getElementById('secretWordInput');
+            const word = input.value.trim();
+            if (!word) return;
+
+            activeTargetWord = word;
+
+            // Firebase 초기 상태 저장 (아직 게임은 시작 전 isStarted: false)
+            db.ref('gameState').set({
+                targetWord: word,
+                isStarted: false,
+                isRevealed: false,
+                resetTrigger: Date.now()
+            });
+            db.ref('gameState/hints').remove();
+            db.ref('submissions').remove();
+
+            // 모달 전환
+            document.getElementById('step1Modal').classList.add('hidden');
+            document.getElementById('step2Modal').classList.remove('hidden');
+            
+            updateTargetDisplay();
+        }
+
+        // 2단계: 게임 시작 버튼 클릭 후 대시보드로 이동
+        function handleStartGame() {
+            db.ref('gameState/isStarted').set(true);
+            document.getElementById('step2Modal').classList.add('hidden');
+            document.getElementById('dashboardView').classList.remove('hidden');
+        }
+
+        // 대시보드 내 단어 변경
         function handleSetTargetWord(e) {
             e.preventDefault();
             const val = document.getElementById('targetInput').value.trim();
@@ -175,7 +288,7 @@
                 db.ref('submissions').remove();
                 document.getElementById('targetInput').value = '';
                 updateTargetDisplay();
-                alert(`비밀 단어 [${val}] 저장 완료! 학생들의 게임이 시작되었습니다.`);
+                alert(`비밀 단어 [${val}] (으)로 게임이 재시작되었습니다.`);
             }
         }
 
@@ -216,7 +329,10 @@
                 db.ref('gameState/hints').remove();
                 db.ref('submissions').remove();
                 db.ref('gameState/resetTrigger').set(Date.now());
-                updateTargetDisplay();
+                
+                // 1단계 모달로 재이동
+                document.getElementById('dashboardView').classList.add('hidden');
+                document.getElementById('step1Modal').classList.remove('hidden');
             }
         }
 
@@ -247,15 +363,42 @@
         function listenFirebaseSubmissions() {
             db.ref('submissions').on('value', (snapshot) => {
                 submissions = [];
+                connectedStudents.clear();
+
                 if (snapshot.exists()) {
                     const data = snapshot.val();
                     Object.keys(data).forEach(key => {
-                        submissions.push(data[key]);
+                        const item = data[key];
+                        submissions.push(item);
+                        if (item.student) connectedStudents.add(item.student);
                     });
                 }
+                
+                renderWaitingRoom();
                 renderLeaderboard();
                 renderLogs();
             });
+        }
+
+        // 2단계 대기실 실시간 인원 및 학생 태그 렌더링
+        function renderWaitingRoom() {
+            const container = document.getElementById('studentListContainer');
+            const countElem = document.getElementById('waitingCount');
+            const studentArray = Array.from(connectedStudents);
+
+            countElem.innerText = `${studentArray.length}명`;
+
+            if (studentArray.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하고 이름을 입력하면 이곳에 실시간으로 표시됩니다...</p>`;
+                return;
+            }
+
+            container.innerHTML = studentArray.map(name => `
+                <div class="bg-slate-900 border border-slate-700/80 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in duration-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>${name}</span>
+                </div>
+            `).join('');
         }
 
         function renderLeaderboard() {
