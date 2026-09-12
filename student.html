@@ -23,7 +23,7 @@
     <div class="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
     <!-- 1. 이름 입력 팝업 -->
-    <div id="nameModal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div id="nameModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm space-y-4 text-center shadow-2xl">
             <div class="bg-purple-600/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-purple-400">
                 <i data-lucide="user" class="w-6 h-6"></i>
@@ -149,6 +149,7 @@
         let timerInterval = null;
         let isGameEnded = false;
         let isGameStartedByTeacher = false;
+        let activeSessionId = null;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
@@ -208,20 +209,22 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            restoreLocalSession();
             startTimer();
             listenFirebaseEvents();
         });
 
-        function restoreLocalSession() {
+        // 로컬 저장소 세션 복구 함수
+        function restoreLocalSession(currentSessionId) {
+            const savedSessionId = localStorage.getItem('wg_session_id');
             const savedName = localStorage.getItem('wg_student_name');
-            const savedAttempts = localStorage.getItem('wg_my_attempts');
 
-            if (savedName) {
+            // 게임 세션 ID가 일치하는 경우에만 이전 내역 복구
+            if (savedSessionId && savedSessionId === String(currentSessionId) && savedName) {
                 studentName = savedName;
                 document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
                 document.getElementById('nameModal').classList.add('hidden');
 
+                const savedAttempts = localStorage.getItem('wg_my_attempts');
                 if (savedAttempts) {
                     try {
                         myAttempts = JSON.parse(savedAttempts);
@@ -230,6 +233,20 @@
                         myAttempts = [];
                     }
                 }
+
+                // Presence 서버 재등록
+                db.ref('presence/' + encodeURIComponent(studentName)).set({
+                    name: studentName,
+                    time: Date.now()
+                });
+                return true;
+            } else {
+                // 세션이 다르거나 없다면 기존 캐시 정리
+                if (savedSessionId !== String(currentSessionId)) {
+                    localStorage.removeItem('wg_student_name');
+                    localStorage.removeItem('wg_my_attempts');
+                }
+                return false;
             }
         }
 
@@ -239,6 +256,10 @@
             studentName = val;
             
             localStorage.setItem('wg_student_name', studentName);
+            if (activeSessionId) {
+                localStorage.setItem('wg_session_id', String(activeSessionId));
+            }
+
             document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
             document.getElementById('nameModal').classList.add('hidden');
 
@@ -261,6 +282,7 @@
 
             localStorage.removeItem('wg_student_name');
             localStorage.removeItem('wg_my_attempts');
+            localStorage.removeItem('wg_session_id');
 
             document.getElementById('studentNameInput').value = "";
             document.getElementById('studentBadge').innerText = "참가자: 이름 설정 필요";
@@ -349,21 +371,33 @@
         }
 
         function listenFirebaseEvents() {
+            // 교사의 resetTrigger(게임 세션 ID) 감지
+            db.ref('gameState/resetTrigger').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const sessionId = snapshot.val();
+                    activeSessionId = sessionId;
+
+                    const restored = restoreLocalSession(sessionId);
+                    if (!restored) {
+                        forceResetToNameModal();
+                    }
+                }
+            });
+
             db.ref('gameState/isStarted').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     isGameStartedByTeacher = snapshot.val();
 
-                    // 게임이 시작된 상태이고 기존 저장된 이름이 있다면 모달들 모두 숨기기 (복구 처리)
-                    const savedName = localStorage.getItem('wg_student_name');
-                    if (savedName) {
-                        studentName = savedName;
+                    if (studentName) {
                         document.getElementById('nameModal').classList.add('hidden');
-                    }
-
-                    if (isGameStartedByTeacher) {
+                        if (isGameStartedByTeacher) {
+                            document.getElementById('waitStartModal').classList.add('hidden');
+                        } else {
+                            document.getElementById('waitStartModal').classList.remove('hidden');
+                        }
+                    } else {
+                        document.getElementById('nameModal').classList.remove('hidden');
                         document.getElementById('waitStartModal').classList.add('hidden');
-                    } else if (studentName) {
-                        document.getElementById('waitStartModal').classList.remove('hidden');
                     }
                 }
             });
@@ -414,12 +448,6 @@
                     isGameEnded = true;
                     document.getElementById('finalTargetWord').innerText = currentTargetWord;
                     document.getElementById('gameOverModal').classList.remove('hidden');
-                }
-            });
-
-            db.ref('gameState/resetTrigger').on('value', (snapshot) => {
-                if (snapshot.exists()) {
-                    forceResetToNameModal();
                 }
             });
         }
