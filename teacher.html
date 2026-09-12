@@ -4,31 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>한국어 단어 유사도 추리 게임 - 교사 대시보드</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.6);
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(51, 65, 85, 0.8);
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(71, 85, 105, 1);
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6">
 
-    <!-- 상단 헤더 -->
     <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
         <div>
             <div class="flex items-center gap-3">
@@ -38,16 +27,15 @@
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                         단어 유사도 추리 게임 
-                        <span class="text-blue-500 text-sm font-normal bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 rounded-full">교사 관리자</span>
+                        <span class="text-blue-500 text-sm font-normal bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 rounded-full">교사 실시간 중계 대시보드</span>
                     </h1>
                     <p class="text-slate-400 text-xs sm:text-sm mt-0.5">
-                        중학교 정보 수업용 실시간 단어 임베딩 유사도 분석 게임 컨트롤 파널
+                        Firebase 연동 30명 전자칠판 실시간 통합 컨트롤 파널
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- 현재 게임 상태 요약 바 -->
         <div class="flex items-center gap-4 bg-slate-900 border border-slate-800 px-5 py-3 rounded-2xl shadow-inner">
             <div class="flex items-center gap-3">
                 <span class="text-xs text-slate-400 font-medium">현재 목표 단어:</span>
@@ -58,132 +46,68 @@
             <div class="h-4 w-px bg-slate-800"></div>
             <div class="flex items-center gap-2">
                 <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="statusText" class="text-xs font-semibold text-slate-300">
-                    진행 중
-                </span>
+                <span id="statusText" class="text-xs font-semibold text-slate-300">실시간 연동됨</span>
             </div>
         </div>
     </header>
 
-    <!-- 메인 대시보드 그리드 -->
     <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- 왼쪽 컬럼: 컨트롤 파널 (비밀 단어 설정 & 힌트 제어) -->
         <div class="lg:col-span-5 space-y-6">
-          
-            <!-- 1. 비밀 단어 설정 카드 -->
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-                <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/5 rounded-full blur-xl"></div>
+            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div class="flex items-center gap-2 mb-4 text-blue-400">
                     <i data-lucide="key-round" class="w-5 h-5"></i>
                     <h2 class="font-semibold text-base text-slate-100">비밀 단어(Target Word) 설정</h2>
                 </div>
-                <form id="wordForm" onsubmit="handleSetTargetWord(event)" class="space-y-3">
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1.5 font-medium">새 정답 단어 입력</label>
-                        <input
-                            type="text"
-                            id="targetInput"
-                            placeholder="예: 인공지능, 빅데이터, 악플"
-                            required
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-slate-600 transition-all"
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 text-sm active:scale-[0.99]"
-                    >
+                <form onsubmit="handleSetTargetWord(event)" class="space-y-3">
+                    <input type="text" id="targetInput" placeholder="예: 인공지능, 빅데이터, 악플" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20 active:scale-95">
                         <i data-lucide="send" class="w-4 h-4"></i>
                         게임 시작 / 비밀 단어 저장
                     </button>
                 </form>
             </section>
 
-            <!-- 2. 힌트 제어 컨트롤러 카드 -->
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-                <div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-500/5 rounded-full blur-xl"></div>
+            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div class="flex items-center gap-2 mb-4 text-amber-400">
                     <i data-lucide="lightbulb" class="w-5 h-5"></i>
-                    <h2 class="font-semibold text-base text-slate-100">학생 화면 힌트 제어</h2>
+                    <h2 class="font-semibold text-base text-slate-100">학생 화면 힌트 실시간 전송</h2>
                 </div>
-
                 <div class="space-y-4">
-                    <!-- 자동 힌트 버튼들 -->
                     <div class="grid grid-cols-2 gap-3">
-                        <button
-                            onclick="handleSendHint('length')"
-                            class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 group hover:border-amber-500/40"
-                        >
-                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform"></i>
-                            글자 수 힌트 전송
+                        <button onclick="sendHint('length')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 글자 수 힌트 전송
                         </button>
-                        <button
-                            onclick="handleSendHint('initial')"
-                            class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 group hover:border-amber-500/40"
-                        >
-                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform"></i>
-                            초성 힌트 전송
+                        <button onclick="sendHint('initial')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 초성 힌트 전송
                         </button>
                     </div>
-
-                    <!-- 직접 입력 힌트 -->
-                    <div class="space-y-1.5">
-                        <label class="block text-xs text-slate-400 font-medium">커스텀 힌트 직접 입력</label>
-                        <div class="flex gap-2">
-                            <input
-                                type="text"
-                                id="customHintInput"
-                                placeholder="예: 4차 산업혁명의 핵심 기술"
-                                class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-white placeholder-slate-600 transition-all"
-                            />
-                            <button
-                                onclick="handleSendHint('custom')"
-                                class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-medium transition-all shadow-lg shadow-amber-600/20 active:scale-[0.98] shrink-0"
-                            >
-                                전송
-                            </button>
-                        </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="customHintInput" placeholder="예: 4차 산업혁명의 핵심 기술" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        <button onclick="sendHint('custom')" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-medium">전송</button>
                     </div>
-
-                    <!-- 최근 전송된 힌트 표시 -->
-                    <div id="hintBox" class="hidden bg-amber-950/30 border border-amber-800/40 rounded-xl p-3.5 text-xs text-amber-200 flex items-start gap-2.5">
-                        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
-                        <div>
-                            <span class="font-semibold text-amber-400 block mb-0.5">최근 발송된 힌트:</span>
-                            <p id="hintText" class="text-amber-200/90 leading-relaxed"></p>
+                    <div id="hintBox" class="bg-amber-950/30 border border-amber-800/40 rounded-xl p-3.5 text-xs text-amber-200 space-y-1.5">
+                        <span class="font-semibold text-amber-400 block mb-1">전송된 힌트 목록:</span>
+                        <div id="hintTextList" class="space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                            <p class="text-slate-500 text-[11px]">전송된 힌트가 없습니다.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- 3. 게임 관리 액션 카드 -->
             <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <h2 class="font-semibold text-xs uppercase tracking-wider text-slate-400 mb-3">게임 상태 관리</h2>
+                <h2 class="font-semibold text-xs uppercase text-slate-400 mb-3">게임 상태 관리</h2>
                 <div class="grid grid-cols-2 gap-3">
-                    <button
-                        id="revealBtn"
-                        onclick="handleRevealAnswer()"
-                        class="bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                    >
-                        <i data-lucide="eye" class="w-4 h-4"></i>
-                        <span id="revealBtnText">정답 공개하기</span>
+                    <button id="revealBtn" onclick="revealAnswer()" class="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="eye" class="w-4 h-4"></i> <span id="revealBtnText">정답 공개하기</span>
                     </button>
-                    <button
-                        onclick="handleResetGame()"
-                        class="bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-400 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                    >
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        게임 리셋
+                    <button onclick="resetGame()" class="bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 게임 리셋
                     </button>
                 </div>
             </section>
-
         </div>
 
-        <!-- 오른쪽 컬럼: 실시간 모니터링 패널 (랭킹 & 로그) -->
         <div class="lg:col-span-7 space-y-6">
-          
-            <!-- 실시간 Top 5 랭킹 -->
             <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2.5 text-yellow-500">
@@ -191,17 +115,12 @@
                         <h2 class="font-semibold text-base text-slate-100">최고 유사도 랭킹 (Top 5)</h2>
                     </div>
                     <span class="text-xs text-slate-500 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        실시간 집계 중
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> 실시간 중계 중
                     </span>
                 </div>
-
-                <div id="leaderboardList" class="space-y-2.5">
-                    <!-- JS로 동적 생성 -->
-                </div>
+                <div id="leaderboardList" class="space-y-2.5"></div>
             </section>
 
-            <!-- 실시간 단어 입력 로그 -->
             <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2.5 text-slate-300">
@@ -210,222 +129,176 @@
                     </div>
                     <span id="logCount" class="text-xs text-slate-500 font-mono">0개 기록됨</span>
                 </div>
-
-                <!-- 로그 테이블/리스트 -->
-                <div id="logList" class="max-h-[280px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                    <!-- JS로 동적 생성 -->
-                </div>
+                <div id="logList" class="max-h-[280px] overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
             </section>
-
         </div>
     </main>
 
-    <!-- App Logic Script -->
     <script>
-        // 초기 가상 데이터 및 상태
-        let activeWord = "인공지능";
-        let isGameActive = true;
-        let isAnswerRevealed = false;
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJaR7GRu1Zau2cpBYzEuxSF4ouvPWhjU4",
+            authDomain: "word-game-6685b.firebaseapp.com",
+            databaseURL: "https://word-game-6685b-default-rtdb.firebaseio.com",
+            projectId: "word-game-6685b",
+            storageBucket: "word-game-6685b.firebasestorage.app",
+            messagingSenderId: "536202057207",
+            appId: "1:536202057207:web:7b060506892ee78353caf2",
+            measurementId: "G-YPRZ7JXBNN"
+        };
 
-        let logs = [
-            { id: 1, student: '김철수', word: '컴퓨터', similarity: 68.5, time: '14:02:15' },
-            { id: 2, student: '이영희', word: '알고리즘', similarity: 82.4, time: '14:02:40' },
-            { id: 3, student: '박민수', word: '빅데이터', similarity: 89.1, time: '14:03:05' },
-            { id: 4, student: '최지우', word: '로봇', similarity: 54.2, time: '14:03:12' },
-            { id: 5, student: '정다은', word: '머신러닝', similarity: 93.7, time: '14:03:30' },
-        ];
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-        // 페이지 로드 초기화
+        let submissions = [];
+        let activeTargetWord = "인공지능";
+        let isRevealed = false;
+
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            updateUI();
+            listenFirebaseSubmissions();
+            listenFirebaseHints();
         });
 
-        // UI 전체 업데이트 함수
-        function updateUI() {
-            // 정답 표시 업데이트
-            const display = document.getElementById('targetWordDisplay');
-            if (isAnswerRevealed) {
-                display.innerText = activeWord;
-                display.classList.remove('text-blue-400');
-                display.classList.add('text-emerald-400');
-            } else {
-                display.innerText = '🔒 ' + '*'.repeat(activeWord.length);
-                display.classList.remove('text-emerald-400');
-                display.classList.add('text-blue-400');
+        function handleSetTargetWord(e) {
+            e.preventDefault();
+            const val = document.getElementById('targetInput').value.trim();
+            if (val) {
+                activeTargetWord = val;
+                isRevealed = false;
+                db.ref('gameState').set({
+                    targetWord: val,
+                    isStarted: true,
+                    isRevealed: false,
+                    resetTrigger: Date.now()
+                });
+                db.ref('gameState/hints').remove();
+                db.ref('submissions').remove();
+                document.getElementById('targetInput').value = '';
+                updateTargetDisplay();
+                alert(`비밀 단어 [${val}] 저장 완료! 학생들의 게임이 시작되었습니다.`);
             }
-
-            // 게임 상태 표시
-            const statusIndicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            if (isGameActive) {
-                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
-                statusText.innerText = "진행 중";
-            } else {
-                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
-                statusText.innerText = "대기 중";
-            }
-
-            // 정답 공개 버튼 상태
-            const revealBtn = document.getElementById('revealBtn');
-            const revealBtnText = document.getElementById('revealBtnText');
-            if (isAnswerRevealed) {
-                revealBtn.disabled = true;
-                revealBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                revealBtnText.innerText = "정답 공개됨";
-            } else {
-                revealBtn.disabled = false;
-                revealBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                revealBtnText.innerText = "정답 공개하기";
-            }
-
-            renderLeaderboard();
-            renderLogs();
         }
 
-        // 랭킹 렌더링
+        function getKoreanInitials(text) {
+            const CHOSUNG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+            return Array.from(text).map(char => {
+                const code = char.charCodeAt(0) - 44032;
+                if (code >= 0 && code <= 11172) return CHOSUNG[Math.floor(code / 588)];
+                return char;
+            }).join(' ');
+        }
+
+        function sendHint(type) {
+            let hintContent = '';
+            if (type === 'length') hintContent = `글자 수 힌트: 총 ${activeTargetWord.length}글자입니다.`;
+            else if (type === 'initial') hintContent = `초성 힌트: [ ${getKoreanInitials(activeTargetWord)} ]`;
+            else if (type === 'custom') {
+                const customText = document.getElementById('customHintInput').value.trim();
+                if (!customText) return;
+                hintContent = `교사 힌트: ${customText}`;
+                document.getElementById('customHintInput').value = '';
+            }
+
+            db.ref('gameState/hints').push(hintContent);
+        }
+
+        function revealAnswer() {
+            isRevealed = true;
+            db.ref('gameState/isRevealed').set(true);
+            updateTargetDisplay();
+        }
+
+        function resetGame() {
+            if (confirm('전체 제출 기록과 힌트를 리셋하시겠습니까?')) {
+                isRevealed = false;
+                db.ref('gameState/isStarted').set(false);
+                db.ref('gameState/isRevealed').set(false);
+                db.ref('gameState/hints').remove();
+                db.ref('submissions').remove();
+                db.ref('gameState/resetTrigger').set(Date.now());
+                updateTargetDisplay();
+            }
+        }
+
+        function updateTargetDisplay() {
+            const display = document.getElementById('targetWordDisplay');
+            if (isRevealed) {
+                display.innerText = activeTargetWord;
+                display.className = "font-bold text-emerald-400 text-xl tracking-wider font-mono";
+            } else {
+                display.innerText = '🔒 ' + '*'.repeat(activeTargetWord.length);
+                display.className = "font-bold text-blue-400 text-xl tracking-wider font-mono";
+            }
+        }
+
+        function listenFirebaseHints() {
+            db.ref('gameState/hints').on('value', (snapshot) => {
+                const container = document.getElementById('hintTextList');
+                if (snapshot.exists()) {
+                    const hintsData = snapshot.val();
+                    const hintList = Object.values(hintsData);
+                    container.innerHTML = hintList.map(h => `<p>• ${h}</p>`).join('');
+                } else {
+                    container.innerHTML = `<p class="text-slate-500 text-[11px]">전송된 힌트가 없습니다.</p>`;
+                }
+            });
+        }
+
+        function listenFirebaseSubmissions() {
+            db.ref('submissions').on('value', (snapshot) => {
+                submissions = [];
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    Object.keys(data).forEach(key => {
+                        submissions.push(data[key]);
+                    });
+                }
+                renderLeaderboard();
+                renderLogs();
+            });
+        }
+
         function renderLeaderboard() {
             const container = document.getElementById('leaderboardList');
-            const sorted = [...logs].sort((a, b) => b.similarity - a.similarity).slice(0, 5);
-
+            const sorted = [...submissions].sort((a, b) => b.similarity - a.similarity).slice(0, 5);
             if (sorted.length === 0) {
                 container.innerHTML = `<p class="text-center py-6 text-xs text-slate-500">아직 제출된 단어가 없습니다.</p>`;
                 return;
             }
-
-            container.innerHTML = sorted.map((item, index) => {
-                let badgeClass = "bg-slate-800 text-slate-400";
-                if (index === 0) badgeClass = "bg-yellow-500 text-slate-950 shadow-md shadow-yellow-500/20";
-                else if (index === 1) badgeClass = "bg-slate-300 text-slate-950";
-                else if (index === 2) badgeClass = "bg-amber-700 text-white";
-
-                return `
-                    <div class="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-3">
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${badgeClass}">
-                                ${index + 1}
-                            </span>
-                            <span class="font-medium text-sm text-slate-200">${item.student}</span>
-                            <span class="text-xs text-slate-500 font-mono">(${item.word})</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden hidden sm:block">
-                                <div class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: ${item.similarity}%"></div>
-                            </div>
-                            <span class="text-sm font-semibold text-emerald-400 font-mono w-14 text-right">
-                                ${item.similarity.toFixed(1)}%
-                            </span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // 제출 로그 렌더링
-        function renderLogs() {
-            const container = document.getElementById('logList');
-            const logCount = document.getElementById('logCount');
-            logCount.innerText = `${logs.length}개 기록됨`;
-
-            if (logs.length === 0) {
-                container.innerHTML = `<p class="text-center py-8 text-xs text-slate-500">기록이 없습니다.</p>`;
-                return;
-            }
-
-            container.innerHTML = [...logs].reverse().map(log => `
-                <div class="flex items-center justify-between bg-slate-950/40 border border-slate-800/40 px-3.5 py-2.5 rounded-lg text-xs hover:border-slate-700/50 transition-colors">
+            container.innerHTML = sorted.map((item, index) => `
+                <div class="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-3">
                     <div class="flex items-center gap-3">
-                        <span class="text-slate-500 font-mono text-[11px]">${log.time}</span>
-                        <span class="font-medium text-slate-300">${log.student}</span>
-                        <span class="text-slate-400 bg-slate-800/80 border border-slate-700/50 px-2 py-0.5 rounded text-[11px]">
-                            ${log.word}
-                        </span>
+                        <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-500 text-slate-950' : 'bg-slate-800 text-slate-400'}">${index + 1}</span>
+                        <span class="font-medium text-sm text-slate-200">${item.student}</span>
+                        <span class="text-xs text-slate-500 font-mono">(${item.word})</span>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <span class="text-slate-500 text-[11px]">유사도</span>
-                        <span class="font-mono font-semibold text-slate-200">${log.similarity.toFixed(1)}%</span>
+                    <div class="flex items-center gap-3">
+                        <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden hidden sm:block">
+                            <div class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full" style="width: ${item.similarity}%"></div>
+                        </div>
+                        <span class="text-sm font-semibold text-emerald-400 font-mono w-14 text-right">${item.similarity.toFixed(1)}%</span>
                     </div>
                 </div>
             `).join('');
         }
 
-        // 비밀 단어 저장
-        function handleSetTargetWord(e) {
-            e.preventDefault();
-            const input = document.getElementById('targetInput');
-            const val = input.value.trim();
-            if (!val) return;
-
-            activeWord = val;
-            isGameActive = true;
-            isAnswerRevealed = false;
-            logs = [];
-            input.value = '';
-
-            // 힌트 박스 숨기기
-            document.getElementById('hintBox').classList.add('hidden');
-
-            updateUI();
-            alert(`새로운 비밀 단어 [${val}] (으)로 게임이 시작되었습니다!`);
-        }
-
-        // 한글 초성 추출 함수
-        function getKoreanInitials(text) {
-            const CHOSUNG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
-            return Array.from(text).map(char => {
-                const code = char.charCodeAt(0) - 44032;
-                if (code >= 0 && code <= 11172) {
-                    return CHOSUNG[Math.floor(code / 588)];
-                }
-                return char;
-            }).join(' ');
-        }
-
-        // 힌트 전송 핸들러
-        function handleSendHint(type) {
-            if (!activeWord) {
-                alert('먼저 비밀 단어를 설정해 주세요.');
+        function renderLogs() {
+            const container = document.getElementById('logList');
+            document.getElementById('logCount').innerText = `${submissions.length}개 기록됨`;
+            if (submissions.length === 0) {
+                container.innerHTML = `<p class="text-center py-8 text-xs text-slate-500">기록이 없습니다.</p>`;
                 return;
             }
-
-            let hintContent = '';
-            if (type === 'length') {
-                hintContent = `글자 수 힌트: 총 ${activeWord.length}글자입니다.`;
-            } else if (type === 'initial') {
-                const initials = getKoreanInitials(activeWord);
-                hintContent = `초성 힌트: [ ${initials} ]`;
-            } else if (type === 'custom') {
-                const customInput = document.getElementById('customHintInput');
-                const val = customInput.value.trim();
-                if (!val) {
-                    alert('힌트 내용을 입력해주세요.');
-                    return;
-                }
-                hintContent = `교사 힌트: ${val}`;
-                customInput.value = '';
-            }
-
-            const hintBox = document.getElementById('hintBox');
-            const hintText = document.getElementById('hintText');
-            hintText.innerText = hintContent;
-            hintBox.classList.remove('hidden');
-        }
-
-        // 정답 공개
-        function handleRevealAnswer() {
-            isAnswerRevealed = true;
-            updateUI();
-        }
-
-        // 게임 리셋
-        function handleResetGame() {
-            if (confirm('게임을 리셋하시겠습니까? 학생들의 제출 기록이 초기화됩니다.')) {
-                isGameActive = false;
-                isAnswerRevealed = false;
-                logs = [];
-                document.getElementById('hintBox').classList.add('hidden');
-                updateUI();
-            }
+            container.innerHTML = [...submissions].reverse().map(log => `
+                <div class="flex items-center justify-between bg-slate-950/40 border border-slate-800/40 px-3.5 py-2.5 rounded-lg text-xs">
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-500 font-mono text-[11px]">${log.time}</span>
+                        <span class="font-medium text-slate-300">${log.student}</span>
+                        <span class="text-slate-400 bg-slate-800 px-2 py-0.5 rounded text-[11px]">${log.word}</span>
+                    </div>
+                    <span class="font-mono font-semibold text-slate-200">${log.similarity.toFixed(1)}%</span>
+                </div>
+            `).join('');
         }
     </script>
 </body>
