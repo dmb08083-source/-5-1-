@@ -203,7 +203,6 @@
             }
         }
 
-        // 전체 초기화 및 이름 입력 팝업으로 강제 복귀
         function forceResetToNameModal() {
             studentName = "";
             myAttempts = [];
@@ -332,7 +331,6 @@
                 }
             });
 
-            // 교사 새로고침/리셋 감지 ➔ 이름 입력 화면으로 초기화
             db.ref('gameState/resetTrigger').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     forceResetToNameModal();
