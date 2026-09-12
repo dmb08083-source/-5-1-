@@ -77,10 +77,10 @@
         </section>
 
         <main class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 relative backdrop-blur-xl">
-            <!-- 정답 성공 팝업 -->
+            <!-- 정답 성공 / 타 학생 정답 승리 팝업 -->
             <div id="winModal" class="hidden absolute inset-0 bg-slate-950/95 rounded-3xl z-30 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
                 <div class="bg-yellow-400 p-4 rounded-full text-slate-950 mb-3 animate-bounce shadow-lg shadow-yellow-500/30"><i data-lucide="trophy" class="w-8 h-8"></i></div>
-                <h2 class="text-2xl font-bold text-white mb-1">🎉 축하합니다! 정답을 맞췄습니다!</h2>
+                <h2 id="winTitle" class="text-2xl font-bold text-white mb-1">🎉 축하합니다! 정답을 맞췄습니다!</h2>
                 <p id="winMsg" class="text-sm text-purple-300 mb-4"></p>
                 <div class="bg-purple-950/40 border border-purple-800/50 p-4 rounded-2xl text-left text-xs text-purple-200 max-w-md">
                     💡 <strong>정보 개념 쏙쏙 (단어 임베딩):</strong> 인공지능(AI)은 글의 뜻을 사람처럼 이해하는 것이 아니라 <strong>단어 간의 데이터 거리(유사도)</strong>를 수학적으로 계산하여 연관성을 파악합니다!
@@ -151,14 +151,15 @@
         let isGameStartedByTeacher = false;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // 박수 소리 및 팡파르 합성 사운드 함수
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
 
             if (type === 'submit') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(440, audioCtx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
@@ -166,13 +167,41 @@
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.15);
             } else if (type === 'win') {
+                // 1. 멜로디 팡파르
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
-                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.12);
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.24);
+                osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.36);
+                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+
+                // 2. 관중 박수 소리 노이즈 합성 (2.5초 간 재생)
+                const bufferSize = audioCtx.sampleRate * 2.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 1200;
+                filter.Q.value = 1.0;
+
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.5);
+
+                noise.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                noise.start();
             }
         }
 
@@ -182,12 +211,11 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            restoreLocalSession(); // 페이지 로드 시 기존 세션 확인 및 복구
+            restoreLocalSession();
             startTimer();
             listenFirebaseEvents();
         });
 
-        // 로컬 저장소 세션 복구 함수 (새로고침 이어서 하기)
         function restoreLocalSession() {
             const savedName = localStorage.getItem('wg_student_name');
             const savedAttempts = localStorage.getItem('wg_my_attempts');
@@ -213,9 +241,7 @@
             if (!val) return;
             studentName = val;
             
-            // 로컬 저장소에 저장
             localStorage.setItem('wg_student_name', studentName);
-
             document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
             document.getElementById('nameModal').classList.add('hidden');
 
@@ -236,7 +262,6 @@
             isGameEnded = false;
             isGameStartedByTeacher = false;
 
-            // 로컬 저장소 캐시 삭제
             localStorage.removeItem('wg_student_name');
             localStorage.removeItem('wg_my_attempts');
 
@@ -313,16 +338,15 @@
             db.ref('submissions').push(submissionData);
             myAttempts.push(submissionData);
             
-            // 시도 기록 로컬 저장소 업데이트
             localStorage.setItem('wg_my_attempts', JSON.stringify(myAttempts));
-
             input.value = '';
 
+            // 정답을 맞힌 경우 Firebase에 승리 알림 전송
             if (score === 100.0) {
-                playSound('win');
-                document.getElementById('winMsg').innerText = `비밀 단어 [${word}]를 정확히 찾아내었습니다!`;
-                document.getElementById('winModal').classList.remove('hidden');
-                if (window.confetti) confetti({ particleCount: 100, spread: 70 });
+                db.ref('gameState/winner').set({
+                    name: studentName,
+                    word: word
+                });
             }
 
             renderMyAttempts();
@@ -343,6 +367,26 @@
             db.ref('gameState/targetWord').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     currentTargetWord = snapshot.val();
+                }
+            });
+
+            // 정답자 탄생 감지 (누군가 정답을 맞춤)
+            db.ref('gameState/winner').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const winnerInfo = snapshot.val();
+                    isGameEnded = true;
+                    playSound('win');
+                    
+                    if (winnerInfo.name === studentName) {
+                        document.getElementById('winTitle').innerText = `🎉 축하합니다! 정답을 맞췄습니다!`;
+                        document.getElementById('winMsg').innerText = `비밀 단어 [${winnerInfo.word}]를 정확히 찾아내었습니다!`;
+                    } else {
+                        document.getElementById('winTitle').innerText = `👏 게임 종료! 정답자 탄생!`;
+                        document.getElementById('winMsg').innerText = `[${winnerInfo.name}] 학생이 정답 단어 [${winnerInfo.word}]를 맞췄습니다!`;
+                    }
+
+                    document.getElementById('winModal').classList.remove('hidden');
+                    if (window.confetti) confetti({ particleCount: 120, spread: 80 });
                 }
             });
 
