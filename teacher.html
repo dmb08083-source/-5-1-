@@ -72,11 +72,10 @@
                 </div>
             </div>
 
-            <!-- 접속 학생 이름 목록 카드 레인 -->
             <div class="space-y-2">
                 <span class="text-xs text-slate-400 font-medium">입장한 학생 목록</span>
                 <div id="studentListContainer" class="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-4 min-h-[160px] max-h-[220px] overflow-y-auto custom-scrollbar flex flex-wrap gap-2 content-start">
-                    <p id="emptyStudentText" class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하면 이곳에 이름이 실시간으로 표시됩니다...</p>
+                    <p id="emptyStudentText" class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하고 이름을 입력하면 이곳에 실시간으로 표시됩니다...</p>
                 </div>
             </div>
 
@@ -92,7 +91,7 @@
         </div>
     </div>
 
-    <!-- [STEP 3] 메인 실시간 대시보드 (기존 대시보드) -->
+    <!-- [STEP 3] 메인 실시간 대시보드 -->
     <div id="dashboardView" class="hidden max-w-7xl mx-auto w-full">
         <header class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
             <div>
@@ -127,7 +126,6 @@
 
         <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-5 space-y-6">
-                <!-- 비밀 단어 변경 -->
                 <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                     <div class="flex items-center gap-2 mb-4 text-blue-400">
                         <i data-lucide="key-round" class="w-5 h-5"></i>
@@ -142,7 +140,6 @@
                     </form>
                 </section>
 
-                <!-- 힌트 제어 -->
                 <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                     <div class="flex items-center gap-2 mb-4 text-amber-400">
                         <i data-lucide="lightbulb" class="w-5 h-5"></i>
@@ -170,7 +167,6 @@
                     </div>
                 </section>
 
-                <!-- 게임 상태 관리 -->
                 <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                     <h2 class="font-semibold text-xs uppercase text-slate-400 mb-3">게임 상태 관리</h2>
                     <div class="grid grid-cols-2 gap-3">
@@ -230,15 +226,28 @@
         let submissions = [];
         let activeTargetWord = "";
         let isRevealed = false;
-        let connectedStudents = new Set();
+        let presenceList = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            wipeAllDataAndInit();
             listenFirebaseSubmissions();
             listenFirebaseHints();
+            listenFirebasePresence();
         });
 
-        // 1단계: 비밀 단어 입력 후 대기실로 이동
+        function wipeAllDataAndInit() {
+            db.ref('gameState').set({
+                targetWord: "",
+                isStarted: false,
+                isRevealed: false,
+                resetTrigger: Date.now()
+            });
+            db.ref('gameState/hints').remove();
+            db.ref('submissions').remove();
+            db.ref('presence').remove();
+        }
+
         function handleStep1Submit(e) {
             e.preventDefault();
             const input = document.getElementById('secretWordInput');
@@ -247,31 +256,25 @@
 
             activeTargetWord = word;
 
-            // Firebase 초기 상태 저장 (아직 게임은 시작 전 isStarted: false)
             db.ref('gameState').set({
                 targetWord: word,
                 isStarted: false,
                 isRevealed: false,
                 resetTrigger: Date.now()
             });
-            db.ref('gameState/hints').remove();
-            db.ref('submissions').remove();
 
-            // 모달 전환
             document.getElementById('step1Modal').classList.add('hidden');
             document.getElementById('step2Modal').classList.remove('hidden');
             
             updateTargetDisplay();
         }
 
-        // 2단계: 게임 시작 버튼 클릭 후 대시보드로 이동
         function handleStartGame() {
             db.ref('gameState/isStarted').set(true);
             document.getElementById('step2Modal').classList.add('hidden');
             document.getElementById('dashboardView').classList.remove('hidden');
         }
 
-        // 대시보드 내 단어 변경
         function handleSetTargetWord(e) {
             e.preventDefault();
             const val = document.getElementById('targetInput').value.trim();
@@ -324,13 +327,8 @@
         function resetGame() {
             if (confirm('전체 제출 기록과 힌트를 리셋하시겠습니까?')) {
                 isRevealed = false;
-                db.ref('gameState/isStarted').set(false);
-                db.ref('gameState/isRevealed').set(false);
-                db.ref('gameState/hints').remove();
-                db.ref('submissions').remove();
-                db.ref('gameState/resetTrigger').set(Date.now());
+                wipeAllDataAndInit();
                 
-                // 1단계 모달로 재이동
                 document.getElementById('dashboardView').classList.add('hidden');
                 document.getElementById('step1Modal').classList.remove('hidden');
             }
@@ -345,6 +343,19 @@
                 display.innerText = '🔒 ' + '*'.repeat(activeTargetWord.length);
                 display.className = "font-bold text-blue-400 text-xl tracking-wider font-mono";
             }
+        }
+
+        function listenFirebasePresence() {
+            db.ref('presence').on('value', (snapshot) => {
+                presenceList = [];
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    Object.keys(data).forEach(key => {
+                        presenceList.push(data[key].name);
+                    });
+                }
+                renderWaitingRoom();
+            });
         }
 
         function listenFirebaseHints() {
@@ -363,37 +374,29 @@
         function listenFirebaseSubmissions() {
             db.ref('submissions').on('value', (snapshot) => {
                 submissions = [];
-                connectedStudents.clear();
-
                 if (snapshot.exists()) {
                     const data = snapshot.val();
                     Object.keys(data).forEach(key => {
-                        const item = data[key];
-                        submissions.push(item);
-                        if (item.student) connectedStudents.add(item.student);
+                        submissions.push(data[key]);
                     });
                 }
-                
-                renderWaitingRoom();
                 renderLeaderboard();
                 renderLogs();
             });
         }
 
-        // 2단계 대기실 실시간 인원 및 학생 태그 렌더링
         function renderWaitingRoom() {
             const container = document.getElementById('studentListContainer');
             const countElem = document.getElementById('waitingCount');
-            const studentArray = Array.from(connectedStudents);
 
-            countElem.innerText = `${studentArray.length}명`;
+            countElem.innerText = `${presenceList.length}명`;
 
-            if (studentArray.length === 0) {
+            if (presenceList.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하고 이름을 입력하면 이곳에 실시간으로 표시됩니다...</p>`;
                 return;
             }
 
-            container.innerHTML = studentArray.map(name => `
+            container.innerHTML = presenceList.map(name => `
                 <div class="bg-slate-900 border border-slate-700/80 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in duration-200">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span>${name}</span>
