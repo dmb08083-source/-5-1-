@@ -3,136 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>한국어 단어 유사도 추리 게임 - 교사 대시보드</title>
+    <title>한국어 단어 유사도 추리 게임 - 학생용</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.5); border-radius: 4px; }
     </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6">
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 flex flex-col justify-between relative overflow-hidden">
+    
+    <div class="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-    <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
-        <div>
+    <!-- 1. 이름 입력 팝업 -->
+    <div id="nameModal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm space-y-4 text-center shadow-2xl">
+            <div class="bg-purple-600/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-purple-400">
+                <i data-lucide="user" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">수업 참가를 위해 이름을 입력하세요</h3>
+            <input type="text" id="studentNameInput" placeholder="예: 2학년 1반 김철수" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <button onclick="saveStudentName()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-purple-600/30">게임 입장하기</button>
+        </div>
+    </div>
+
+    <!-- 2. 교사 게임 시작 대기 팝업 -->
+    <div id="waitStartModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-40 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl w-full max-w-sm space-y-4 text-center shadow-2xl animate-pulse">
+            <div class="bg-amber-500/20 w-14 h-14 rounded-full flex items-center justify-center mx-auto text-amber-400">
+                <i data-lucide="hourglass" class="w-7 h-7"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white">선생님의 게임 시작 대기 중...</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+                선생님이 전자칠판에서 [게임 시작] 버튼을 누르면 화면이 자동으로 열립니다. 잠시만 기다려 주세요!
+            </p>
+        </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto w-full space-y-6 z-10 my-auto">
+        <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 border border-slate-800 p-4 rounded-2xl shadow-xl">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/20">
-                    <i data-lucide="activity" class="w-6 h-6"></i>
+                <div class="bg-gradient-to-tr from-purple-600 to-indigo-500 p-2.5 rounded-xl text-white">
+                    <i data-lucide="brain-circuit" class="w-6 h-6 animate-pulse"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                        단어 유사도 추리 게임 
-                        <span class="text-blue-500 text-sm font-normal bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 rounded-full">교사 실시간 중계 대시보드</span>
-                    </h1>
-                    <p class="text-slate-400 text-xs sm:text-sm mt-0.5">
-                        Firebase 연동 30명 전자칠판 실시간 통합 컨트롤 파널
-                    </p>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-300 bg-clip-text text-transparent">단어 유사도 추리 게임</h1>
+                    <p id="studentBadge" class="text-xs text-slate-400">참가자: 이름 설정 필요</p>
                 </div>
             </div>
-        </div>
-
-        <div class="flex items-center gap-4 bg-slate-900 border border-slate-800 px-5 py-3 rounded-2xl shadow-inner">
-            <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-400 font-medium">현재 목표 단어:</span>
-                <span id="targetWordDisplay" class="font-bold text-blue-400 text-xl tracking-wider font-mono">
-                    🔒 ****
-                </span>
+            <div class="flex items-center gap-3 text-xs bg-slate-950/60 border border-slate-800 px-3.5 py-2 rounded-xl">
+                <span class="text-slate-400">시도: <strong id="attemptCount" class="text-white font-mono">0회</strong></span>
+                <div class="h-3 w-px bg-slate-800"></div>
+                <span class="text-slate-400">시간: <strong id="timerDisplay" class="text-indigo-400 font-mono">00:00</strong></span>
             </div>
-            <div class="h-4 w-px bg-slate-800"></div>
-            <div class="flex items-center gap-2">
-                <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="statusText" class="text-xs font-semibold text-slate-300">실시간 연동됨</span>
+        </header>
+
+        <!-- 실시간 누적 힌트 알림 -->
+        <section class="bg-gradient-to-r from-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-4 shadow-md space-y-2">
+            <div class="flex items-center gap-2 text-amber-400 text-xs font-bold border-b border-amber-500/20 pb-2">
+                <i data-lucide="help-circle" class="w-4 h-4"></i>
+                <span>[선생님 힌트 목록]</span>
             </div>
-        </div>
-    </header>
+            <div id="hintList" class="space-y-1.5 text-xs text-amber-200/90 max-h-[100px] overflow-y-auto custom-scrollbar">
+                <p class="text-slate-500 text-[11px] font-normal">선생님이 전송하는 힌트가 이곳에 차곡차곡 표시됩니다.</p>
+            </div>
+        </section>
 
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div class="lg:col-span-5 space-y-6">
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center gap-2 mb-4 text-blue-400">
-                    <i data-lucide="key-round" class="w-5 h-5"></i>
-                    <h2 class="font-semibold text-base text-slate-100">비밀 단어(Target Word) 설정</h2>
+        <main class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 relative backdrop-blur-xl">
+            <!-- 정답 성공 팝업 -->
+            <div id="winModal" class="hidden absolute inset-0 bg-slate-950/95 rounded-3xl z-30 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
+                <div class="bg-yellow-400 p-4 rounded-full text-slate-950 mb-3 animate-bounce shadow-lg shadow-yellow-500/30"><i data-lucide="trophy" class="w-8 h-8"></i></div>
+                <h2 class="text-2xl font-bold text-white mb-1">🎉 축하합니다! 정답을 맞췄습니다!</h2>
+                <p id="winMsg" class="text-sm text-purple-300 mb-4"></p>
+                <div class="bg-purple-950/40 border border-purple-800/50 p-4 rounded-2xl text-left text-xs text-purple-200 max-w-md">
+                    💡 <strong>정보 개념 쏙쏙 (단어 임베딩):</strong> 인공지능(AI)은 글의 뜻을 사람처럼 이해하는 것이 아니라 <strong>단어 간의 데이터 거리(유사도)</strong>를 수학적으로 계산하여 연관성을 파악합니다!
                 </div>
-                <form onsubmit="handleSetTargetWord(event)" class="space-y-3">
-                    <input type="text" id="targetInput" placeholder="예: 인공지능, 빅데이터, 악플" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20 active:scale-95">
-                        <i data-lucide="send" class="w-4 h-4"></i>
-                        게임 시작 / 비밀 단어 저장
-                    </button>
-                </form>
-            </section>
+            </div>
 
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center gap-2 mb-4 text-amber-400">
-                    <i data-lucide="lightbulb" class="w-5 h-5"></i>
-                    <h2 class="font-semibold text-base text-slate-100">학생 화면 힌트 실시간 전송</h2>
+            <!-- 교사 정답 공개/종료 팝업 -->
+            <div id="gameOverModal" class="hidden absolute inset-0 bg-slate-950/95 rounded-3xl z-40 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+                <div class="bg-indigo-600/20 border border-indigo-500/30 p-4 rounded-full text-indigo-400 mb-3">
+                    <i data-lucide="lock" class="w-8 h-8"></i>
                 </div>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="sendHint('length')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 글자 수 힌트 전송
-                        </button>
-                        <button onclick="sendHint('initial')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 py-3 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                            <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i> 초성 힌트 전송
-                        </button>
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="customHintInput" placeholder="예: 4차 산업혁명의 핵심 기술" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                        <button onclick="sendHint('custom')" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-medium">전송</button>
-                    </div>
-                    <div id="hintBox" class="bg-amber-950/30 border border-amber-800/40 rounded-xl p-3.5 text-xs text-amber-200 space-y-1.5">
-                        <span class="font-semibold text-amber-400 block mb-1">전송된 힌트 목록:</span>
-                        <div id="hintTextList" class="space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar">
-                            <p class="text-slate-500 text-[11px]">전송된 힌트가 없습니다.</p>
-                        </div>
-                    </div>
+                <h2 class="text-2xl font-bold text-white mb-2">게임이 종료되었습니다!</h2>
+                <p class="text-sm text-slate-300 mb-4">선생님이 정답을 공개했습니다.</p>
+                <div class="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl mb-6">
+                    <span class="text-xs text-slate-400 block mb-1">오늘의 비밀 단어</span>
+                    <span id="finalTargetWord" class="text-2xl font-extrabold text-emerald-400 tracking-wider">---</span>
                 </div>
-            </section>
+                <p class="text-xs text-slate-500">선생님이 다음 게임을 리셋할 때까지 기다려 주세요.</p>
+            </div>
 
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <h2 class="font-semibold text-xs uppercase text-slate-400 mb-3">게임 상태 관리</h2>
-                <div class="grid grid-cols-2 gap-3">
-                    <button id="revealBtn" onclick="revealAnswer()" class="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                        <i data-lucide="eye" class="w-4 h-4"></i> <span id="revealBtnText">정답 공개하기</span>
-                    </button>
-                    <button onclick="resetGame()" class="bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 게임 리셋
-                    </button>
+            <form onsubmit="handleSubmit(event)" class="space-y-3">
+                <label class="block text-xs text-slate-400">추리할 단어를 입력하세요 (예: 머신러닝, 데이터, 로봇)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="wordInput" placeholder="단어 입력..." required autocomplete="off" class="flex-1 bg-slate-950 border border-slate-700/80 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50" />
+                    <button type="submit" id="submitBtn" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium px-6 rounded-2xl text-sm shadow-lg shadow-purple-600/30 disabled:opacity-50 active:scale-95 transition-all">유사도 측정</button>
                 </div>
-            </section>
-        </div>
+            </form>
 
-        <div class="lg:col-span-7 space-y-6">
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2.5 text-yellow-500">
-                        <i data-lucide="trophy" class="w-5 h-5"></i>
-                        <h2 class="font-semibold text-base text-slate-100">최고 유사도 랭킹 (Top 5)</h2>
-                    </div>
-                    <span class="text-xs text-slate-500 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> 실시간 중계 중
-                    </span>
+            <!-- 동적 게이지 바 -->
+            <div class="space-y-2 bg-slate-950/50 border border-slate-800 p-4 rounded-2xl">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400">현재 나의 최고 유사도 근접률</span>
+                    <span id="topScoreText" class="font-mono font-bold text-purple-400 text-sm">0%</span>
                 </div>
-                <div id="leaderboardList" class="space-y-2.5"></div>
-            </section>
+                <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+                    <div id="progressBar" class="bg-gradient-to-r from-purple-500 via-indigo-400 to-emerald-400 h-full rounded-full transition-all duration-700 ease-out shadow-sm" style="width: 0%"></div>
+                </div>
+            </div>
+        </main>
 
-            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2.5 text-slate-300">
-                        <i data-lucide="users" class="w-5 h-5 text-blue-400"></i>
-                        <h2 class="font-semibold text-base text-slate-100">실시간 학생 제출 로그</h2>
-                    </div>
-                    <span id="logCount" class="text-xs text-slate-500 font-mono">0개 기록됨</span>
-                </div>
-                <div id="logList" class="max-h-[280px] overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
-            </section>
-        </div>
-    </main>
+        <section class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl">
+            <h2 class="text-sm font-semibold text-slate-200">내가 입력한 단어 리스트 <span class="text-xs font-normal text-slate-400">(유사도 높은 순)</span></h2>
+            <div id="myAttemptsList" class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
+        </section>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -149,154 +142,205 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let submissions = [];
-        let activeTargetWord = "인공지능";
-        let isRevealed = false;
+        let studentName = "";
+        let currentTargetWord = "인공지능";
+        let myAttempts = [];
+        let timer = 0;
+        let timerInterval = null;
+        let isGameEnded = false;
+        let isGameStartedByTeacher = false;
+
+        // 효과음 사운드 엔진 (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'submit') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'win') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+            }
+        }
+
+        const mockEmbeddings = {
+            '인공지능': { '인공지능': 100.0, '머신러닝': 94.2, '딥러닝': 91.5, '빅데이터': 88.3, '알고리즘': 82.1, '컴퓨터': 75.4, '로봇': 71.2, '데이터': 68.9, '소프트웨어': 64.1, '스마트폰': 45.2, '학교': 23.1, '바나나': 4.5 }
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            listenFirebaseSubmissions();
-            listenFirebaseHints();
+            startTimer();
+            listenFirebaseEvents();
         });
 
-        function handleSetTargetWord(e) {
+        function saveStudentName() {
+            const val = document.getElementById('studentNameInput').value.trim();
+            if (!val) return;
+            studentName = val;
+            document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
+            document.getElementById('nameModal').classList.add('hidden');
+
+            if (!isGameStartedByTeacher) {
+                document.getElementById('waitStartModal').classList.remove('hidden');
+            }
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (!isGameEnded && isGameStartedByTeacher) {
+                    timer++;
+                    const mins = Math.floor(timer / 60).toString().padStart(2, '0');
+                    const secs = (timer % 60).toString().padStart(2, '0');
+                    document.getElementById('timerDisplay').innerText = `${mins}:${secs}`;
+                }
+            }, 1000);
+        }
+
+        function calculateSimilarity(inputWord, target) {
+            if (inputWord === target) return 100.0;
+            if (mockEmbeddings[target] && mockEmbeddings[target][inputWord]) {
+                return mockEmbeddings[target][inputWord];
+            }
+            let overlapScore = 0;
+            for (let char of inputWord) {
+                if (target.includes(char)) overlapScore += 20;
+            }
+            let charCodeSum = 0;
+            for (let i = 0; i < inputWord.length; i++) {
+                charCodeSum += inputWord.charCodeAt(i);
+            }
+            const pseudoRandom = (charCodeSum % 40) + 15;
+            return Math.min(Math.round((overlapScore + pseudoRandom) * 10) / 10, 98.9);
+        }
+
+        function handleSubmit(e) {
             e.preventDefault();
-            const val = document.getElementById('targetInput').value.trim();
-            if (val) {
-                activeTargetWord = val;
-                isRevealed = false;
-                db.ref('gameState').set({
-                    targetWord: val,
-                    isStarted: true,
-                    isRevealed: false,
-                    resetTrigger: Date.now()
-                });
-                db.ref('gameState/hints').remove();
-                db.ref('submissions').remove();
-                document.getElementById('targetInput').value = '';
-                updateTargetDisplay();
-                alert(`비밀 단어 [${val}] 저장 완료! 학생들의 게임이 시작되었습니다.`);
-            }
-        }
+            if (isGameEnded || !isGameStartedByTeacher) return;
 
-        function getKoreanInitials(text) {
-            const CHOSUNG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
-            return Array.from(text).map(char => {
-                const code = char.charCodeAt(0) - 44032;
-                if (code >= 0 && code <= 11172) return CHOSUNG[Math.floor(code / 588)];
-                return char;
-            }).join(' ');
-        }
+            const input = document.getElementById('wordInput');
+            const word = input.value.trim();
+            if (!word) return;
 
-        function sendHint(type) {
-            let hintContent = '';
-            if (type === 'length') hintContent = `글자 수 힌트: 총 ${activeTargetWord.length}글자입니다.`;
-            else if (type === 'initial') hintContent = `초성 힌트: [ ${getKoreanInitials(activeTargetWord)} ]`;
-            else if (type === 'custom') {
-                const customText = document.getElementById('customHintInput').value.trim();
-                if (!customText) return;
-                hintContent = `교사 힌트: ${customText}`;
-                document.getElementById('customHintInput').value = '';
+            if (myAttempts.some(a => a.word === word)) {
+                alert('이미 입력한 단어입니다!');
+                input.value = '';
+                return;
             }
 
-            db.ref('gameState/hints').push(hintContent);
-        }
+            playSound('submit');
+            const score = calculateSimilarity(word, currentTargetWord);
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
 
-        function revealAnswer() {
-            isRevealed = true;
-            db.ref('gameState/isRevealed').set(true);
-            updateTargetDisplay();
-        }
+            const submissionData = {
+                student: studentName,
+                word: word,
+                similarity: score,
+                time: timeStr,
+                timestamp: Date.now()
+            };
 
-        function resetGame() {
-            if (confirm('전체 제출 기록과 힌트를 리셋하시겠습니까?')) {
-                isRevealed = false;
-                db.ref('gameState/isStarted').set(false);
-                db.ref('gameState/isRevealed').set(false);
-                db.ref('gameState/hints').remove();
-                db.ref('submissions').remove();
-                db.ref('gameState/resetTrigger').set(Date.now());
-                updateTargetDisplay();
+            db.ref('submissions').push(submissionData);
+            myAttempts.push(submissionData);
+            input.value = '';
+
+            if (score === 100.0) {
+                playSound('win');
+                document.getElementById('winMsg').innerText = `비밀 단어 [${word}]를 정확히 찾아내었습니다!`;
+                document.getElementById('winModal').classList.remove('hidden');
+                if (window.confetti) confetti({ particleCount: 100, spread: 70 });
             }
+
+            renderMyAttempts();
         }
 
-        function updateTargetDisplay() {
-            const display = document.getElementById('targetWordDisplay');
-            if (isRevealed) {
-                display.innerText = activeTargetWord;
-                display.className = "font-bold text-emerald-400 text-xl tracking-wider font-mono";
-            } else {
-                display.innerText = '🔒 ' + '*'.repeat(activeTargetWord.length);
-                display.className = "font-bold text-blue-400 text-xl tracking-wider font-mono";
-            }
-        }
+        function listenFirebaseEvents() {
+            // 교사 게임 시작 여부 감지
+            db.ref('gameState/isStarted').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    isGameStartedByTeacher = snapshot.val();
+                    if (isGameStartedByTeacher) {
+                        document.getElementById('waitStartModal').classList.add('hidden');
+                    } else if (studentName) {
+                        document.getElementById('waitStartModal').classList.remove('hidden');
+                    }
+                }
+            });
 
-        function listenFirebaseHints() {
+            db.ref('gameState/targetWord').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    currentTargetWord = snapshot.val();
+                }
+            });
+
             db.ref('gameState/hints').on('value', (snapshot) => {
-                const container = document.getElementById('hintTextList');
+                const hintContainer = document.getElementById('hintList');
                 if (snapshot.exists()) {
                     const hintsData = snapshot.val();
                     const hintList = Object.values(hintsData);
-                    container.innerHTML = hintList.map(h => `<p>• ${h}</p>`).join('');
-                } else {
-                    container.innerHTML = `<p class="text-slate-500 text-[11px]">전송된 힌트가 없습니다.</p>`;
-                }
-            });
-        }
-
-        function listenFirebaseSubmissions() {
-            db.ref('submissions').on('value', (snapshot) => {
-                submissions = [];
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    Object.keys(data).forEach(key => {
-                        submissions.push(data[key]);
-                    });
-                }
-                renderLeaderboard();
-                renderLogs();
-            });
-        }
-
-        function renderLeaderboard() {
-            const container = document.getElementById('leaderboardList');
-            const sorted = [...submissions].sort((a, b) => b.similarity - a.similarity).slice(0, 5);
-            if (sorted.length === 0) {
-                container.innerHTML = `<p class="text-center py-6 text-xs text-slate-500">아직 제출된 단어가 없습니다.</p>`;
-                return;
-            }
-            container.innerHTML = sorted.map((item, index) => `
-                <div class="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-3">
-                    <div class="flex items-center gap-3">
-                        <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-500 text-slate-950' : 'bg-slate-800 text-slate-400'}">${index + 1}</span>
-                        <span class="font-medium text-sm text-slate-200">${item.student}</span>
-                        <span class="text-xs text-slate-500 font-mono">(${item.word})</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden hidden sm:block">
-                            <div class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full" style="width: ${item.similarity}%"></div>
+                    hintContainer.innerHTML = hintList.map(h => `
+                        <div class="flex items-center gap-1.5 bg-amber-950/40 border border-amber-800/30 px-2.5 py-1.5 rounded-lg">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                            <span>${h}</span>
                         </div>
-                        <span class="text-sm font-semibold text-emerald-400 font-mono w-14 text-right">${item.similarity.toFixed(1)}%</span>
-                    </div>
-                </div>
-            `).join('');
+                    `).join('');
+                } else {
+                    hintContainer.innerHTML = `<p class="text-slate-500 text-[11px] font-normal">선생님이 전송하는 힌트가 이곳에 차곡차곡 표시됩니다.</p>`;
+                }
+            });
+
+            db.ref('gameState/isRevealed').on('value', (snapshot) => {
+                if (snapshot.exists() && snapshot.val() === true) {
+                    isGameEnded = true;
+                    document.getElementById('finalTargetWord').innerText = currentTargetWord;
+                    document.getElementById('gameOverModal').classList.remove('hidden');
+                }
+            });
+
+            db.ref('gameState/resetTrigger').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    isGameEnded = false;
+                    myAttempts = [];
+                    timer = 0;
+                    document.getElementById('winModal').classList.add('hidden');
+                    document.getElementById('gameOverModal').classList.add('hidden');
+                    renderMyAttempts();
+                }
+            });
         }
 
-        function renderLogs() {
-            const container = document.getElementById('logList');
-            document.getElementById('logCount').innerText = `${submissions.length}개 기록됨`;
-            if (submissions.length === 0) {
-                container.innerHTML = `<p class="text-center py-8 text-xs text-slate-500">기록이 없습니다.</p>`;
+        function renderMyAttempts() {
+            document.getElementById('attemptCount').innerText = `${myAttempts.length}회`;
+            const sorted = [...myAttempts].sort((a, b) => b.similarity - a.similarity);
+            const top = sorted.length > 0 ? sorted[0].similarity : 0;
+            
+            document.getElementById('topScoreText').innerText = `${top.toFixed(1)}%`;
+            document.getElementById('progressBar').style.width = `${top}%`;
+
+            const container = document.getElementById('myAttemptsList');
+            if (sorted.length === 0) {
+                container.innerHTML = `<p class="text-center py-6 text-xs text-slate-500">아직 입력한 단어가 없습니다.</p>`;
                 return;
             }
-            container.innerHTML = [...submissions].reverse().map(log => `
-                <div class="flex items-center justify-between bg-slate-950/40 border border-slate-800/40 px-3.5 py-2.5 rounded-lg text-xs">
-                    <div class="flex items-center gap-3">
-                        <span class="text-slate-500 font-mono text-[11px]">${log.time}</span>
-                        <span class="font-medium text-slate-300">${log.student}</span>
-                        <span class="text-slate-400 bg-slate-800 px-2 py-0.5 rounded text-[11px]">${log.word}</span>
-                    </div>
-                    <span class="font-mono font-semibold text-slate-200">${log.similarity.toFixed(1)}%</span>
+
+            container.innerHTML = sorted.map((item, idx) => `
+                <div class="flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs bg-slate-950/40 border-slate-800">
+                    <span class="font-medium text-slate-200">${idx + 1}. ${item.word}</span>
+                    <span class="font-mono font-bold text-purple-400">${item.similarity.toFixed(1)}%</span>
                 </div>
             `).join('');
         }
