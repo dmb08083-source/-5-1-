@@ -152,7 +152,6 @@
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // 박수 소리 및 팡파르 합성 사운드 함수
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -167,7 +166,6 @@
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.15);
             } else if (type === 'win') {
-                // 1. 멜로디 팡파르
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.connect(gain); gain.connect(audioCtx.destination);
@@ -180,7 +178,6 @@
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.8);
 
-                // 2. 관중 박수 소리 노이즈 합성 (2.5초 간 재생)
                 const bufferSize = audioCtx.sampleRate * 2.5;
                 const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
@@ -341,7 +338,6 @@
             localStorage.setItem('wg_my_attempts', JSON.stringify(myAttempts));
             input.value = '';
 
-            // 정답을 맞힌 경우 Firebase에 승리 알림 전송
             if (score === 100.0) {
                 db.ref('gameState/winner').set({
                     name: studentName,
@@ -356,6 +352,14 @@
             db.ref('gameState/isStarted').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     isGameStartedByTeacher = snapshot.val();
+
+                    // 게임이 시작된 상태이고 기존 저장된 이름이 있다면 모달들 모두 숨기기 (복구 처리)
+                    const savedName = localStorage.getItem('wg_student_name');
+                    if (savedName) {
+                        studentName = savedName;
+                        document.getElementById('nameModal').classList.add('hidden');
+                    }
+
                     if (isGameStartedByTeacher) {
                         document.getElementById('waitStartModal').classList.add('hidden');
                     } else if (studentName) {
@@ -370,7 +374,6 @@
                 }
             });
 
-            // 정답자 탄생 감지 (누군가 정답을 맞춤)
             db.ref('gameState/winner').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     const winnerInfo = snapshot.val();
