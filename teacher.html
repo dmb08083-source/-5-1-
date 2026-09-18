@@ -53,22 +53,32 @@
 
             <form onsubmit="handleStep1Submit(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-2 font-medium">정답 단어 (Target Word)</label>
-                    <input 
-                        type="text" 
-                        id="secretWordInput" 
-                        placeholder="예: 인공지능, 빅데이터, 악플" 
-                        required 
-                        autocomplete="off"
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 transition-all"
-                    />
+                    <label class="block text-xs text-slate-400 mb-2 font-medium">정답 단어 (보안 가림 적용)</label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="secretWordInput" 
+                            placeholder="단어 입력 (입력 내용이 가려집니다)" 
+                            required 
+                            autocomplete="off"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-4 pr-12 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 transition-all font-mono"
+                        />
+                        <button 
+                            type="button" 
+                            onclick="toggleWordVisibility()" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                            title="단어 확인"
+                        >
+                            <i data-lucide="eye" id="eyeIcon" class="w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
                 <button 
                     type="submit" 
                     class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 text-sm active:scale-95"
                 >
                     <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    입력 완료 (학생 대기실로 이동)
+                    입력 완료 (방 코드 생성 및 대기실 이동)
                 </button>
             </form>
         </div>
@@ -77,26 +87,29 @@
     <!-- [STEP 2] 학생 접속 현황 대기실 모달 -->
     <div id="step2Modal" class="hidden fixed inset-0 bg-slate-950 z-40 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl w-full max-w-2xl space-y-6 shadow-2xl">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
                 <div class="flex items-center gap-3">
                     <div class="bg-emerald-500/20 p-2.5 rounded-xl text-emerald-400">
                         <i data-lucide="users" class="w-6 h-6"></i>
                     </div>
                     <div>
                         <h2 class="text-xl font-bold text-white">학생 접속 대기실</h2>
-                        <p class="text-xs text-slate-400">구글 클래스룸 링크로 학생들이 입장하고 있습니다.</p>
+                        <p class="text-xs text-slate-400">학생들에게 아래 참여 방 코드를 안내해 주세요.</p>
                     </div>
                 </div>
-                <div class="bg-slate-950 border border-slate-800 px-4 py-2 rounded-xl text-right">
-                    <span class="text-xs text-slate-400 block">현재 입장 인원</span>
-                    <span id="waitingCount" class="text-xl font-extrabold text-emerald-400 font-mono">0명</span>
+                <div class="bg-blue-950/60 border border-blue-500/40 px-5 py-2.5 rounded-2xl flex items-center justify-between sm:justify-end gap-3">
+                    <span class="text-xs text-blue-300 font-medium">수업 참여 코드:</span>
+                    <span id="roomCodeDisplay" class="text-2xl font-black text-amber-400 font-mono tracking-widest">----</span>
                 </div>
             </div>
 
             <div class="space-y-2">
-                <span class="text-xs text-slate-400 font-medium">입장한 학생 목록</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-slate-400 font-medium">입장 완료 학생 목록</span>
+                    <span id="waitingCount" class="text-sm font-bold text-emerald-400 font-mono">0명 접속</span>
+                </div>
                 <div id="studentListContainer" class="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-4 min-h-[160px] max-h-[220px] overflow-y-auto custom-scrollbar flex flex-wrap gap-2 content-start">
-                    <p id="emptyStudentText" class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하고 이름을 입력하면 이곳에 실시간으로 표시됩니다...</p>
+                    <p id="emptyStudentText" class="text-xs text-slate-500 w-full text-center py-10">학생들이 학번이름과 방 코드를 입력하면 이곳에 실시간으로 표시됩니다...</p>
                 </div>
             </div>
 
@@ -134,8 +147,8 @@
 
             <div class="flex items-center gap-4 bg-slate-900 border border-slate-800 px-5 py-3 rounded-2xl shadow-inner">
                 <div class="flex items-center gap-3">
-                    <span class="text-xs text-slate-400 font-medium">현재 목표 단어:</span>
-                    <span id="targetWordDisplay" class="font-bold text-blue-400 text-xl tracking-wider font-mono">🔒 ****</span>
+                    <span class="text-xs text-slate-400 font-medium">참여 코드:</span>
+                    <span id="dashRoomCode" class="font-bold text-amber-400 text-lg tracking-wider font-mono">----</span>
                 </div>
                 <div class="h-4 w-px bg-slate-800"></div>
                 <div class="flex items-center gap-2">
@@ -153,7 +166,12 @@
                         <h2 class="font-semibold text-base text-slate-100">새 비밀 단어 변경</h2>
                     </div>
                     <form onsubmit="handleSetTargetWord(event)" class="space-y-3">
-                        <input type="text" id="targetInput" placeholder="변경할 단어 입력" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <div class="relative">
+                            <input type="password" id="targetInput" placeholder="변경할 단어 입력" required class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                            <button type="button" onclick="toggleDashWordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1">
+                                <i data-lucide="eye" id="dashEyeIcon" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20 active:scale-95">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                             단어 변경 및 게임 재시작
@@ -248,14 +266,13 @@
         let activeTargetWord = "";
         let isRevealed = false;
         let presenceList = [];
+        let currentRoomCode = "";
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // 박수 소리 및 축하 사운드 효과
         function playVictorySound() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
-            // 팡파르
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain); gain.connect(audioCtx.destination);
@@ -268,7 +285,6 @@
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
             osc.start(); osc.stop(audioCtx.currentTime + 0.8);
 
-            // 박수 소리 합성 (3초)
             const bufferSize = audioCtx.sampleRate * 3.0;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -301,9 +317,24 @@
             listenFirebaseWinner();
         });
 
+        function toggleWordVisibility() {
+            const input = document.getElementById('secretWordInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function toggleDashWordVisibility() {
+            const input = document.getElementById('targetInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function generateRoomCode() {
+            return Math.floor(1000 + Math.random() * 9000).toString();
+        }
+
         function wipeAllDataAndInit() {
             db.ref('gameState').set({
                 targetWord: "",
+                roomCode: "",
                 isStarted: false,
                 isRevealed: false,
                 resetTrigger: Date.now()
@@ -321,18 +352,21 @@
             if (!word) return;
 
             activeTargetWord = word;
+            currentRoomCode = generateRoomCode();
 
             db.ref('gameState').set({
                 targetWord: word,
+                roomCode: currentRoomCode,
                 isStarted: false,
                 isRevealed: false,
                 resetTrigger: Date.now()
             });
 
+            document.getElementById('roomCodeDisplay').innerText = currentRoomCode;
+            document.getElementById('dashRoomCode').innerText = currentRoomCode;
+
             document.getElementById('step1Modal').classList.add('hidden');
             document.getElementById('step2Modal').classList.remove('hidden');
-            
-            updateTargetDisplay();
         }
 
         function handleStartGame() {
@@ -347,8 +381,11 @@
             if (val) {
                 activeTargetWord = val;
                 isRevealed = false;
+                currentRoomCode = generateRoomCode();
+
                 db.ref('gameState').set({
                     targetWord: val,
+                    roomCode: currentRoomCode,
                     isStarted: true,
                     isRevealed: false,
                     resetTrigger: Date.now()
@@ -356,10 +393,11 @@
                 db.ref('gameState/hints').remove();
                 db.ref('gameState/winner').remove();
                 db.ref('submissions').remove();
+                
                 document.getElementById('targetInput').value = '';
+                document.getElementById('dashRoomCode').innerText = currentRoomCode;
                 document.getElementById('teacherWinnerModal').classList.add('hidden');
-                updateTargetDisplay();
-                alert(`비밀 단어 [${val}] (으)로 게임이 재시작되었습니다.`);
+                alert(`비밀 단어 [${val}] / 방 코드 [${currentRoomCode}] 로 게임이 재시작되었습니다.`);
             }
         }
 
@@ -389,7 +427,6 @@
         function revealAnswer() {
             isRevealed = true;
             db.ref('gameState/isRevealed').set(true);
-            updateTargetDisplay();
         }
 
         function resetGame() {
@@ -403,23 +440,11 @@
             }
         }
 
-        function updateTargetDisplay() {
-            const display = document.getElementById('targetWordDisplay');
-            if (isRevealed) {
-                display.innerText = activeTargetWord;
-                display.className = "font-bold text-emerald-400 text-xl tracking-wider font-mono";
-            } else {
-                display.innerText = '🔒 ' + '*'.repeat(activeTargetWord.length);
-                display.className = "font-bold text-blue-400 text-xl tracking-wider font-mono";
-            }
-        }
-
-        // 정답자 발생 실시간 리스너
         function listenFirebaseWinner() {
             db.ref('gameState/winner').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     const winner = snapshot.val();
-                    document.getElementById('winnerStudentName').innerText = `${winner.name} 학생`;
+                    document.getElementById('winnerStudentName').innerText = `${winner.name}`;
                     document.getElementById('winnerTargetWord').innerText = `[${winner.word}]`;
                     document.getElementById('teacherWinnerModal').classList.remove('hidden');
                     
@@ -477,10 +502,10 @@
             const container = document.getElementById('studentListContainer');
             const countElem = document.getElementById('waitingCount');
 
-            countElem.innerText = `${presenceList.length}명`;
+            countElem.innerText = `${presenceList.length}명 접속`;
 
             if (presenceList.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-500 w-full text-center py-10">학생들이 접속하고 이름을 입력하면 이곳에 실시간으로 표시됩니다...</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-500 w-full text-center py-10">학생들이 학번이름과 방 코드를 입력하면 이곳에 실시간으로 표시됩니다...</p>`;
                 return;
             }
 
