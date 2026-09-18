@@ -22,15 +22,26 @@
     <div class="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
     <div class="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-    <!-- 1. 이름 입력 팝업 -->
-    <div id="nameModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <!-- 1. 학번이름 및 참여 방 코드 입력 팝업 -->
+    <div id="nameModal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm space-y-4 text-center shadow-2xl">
             <div class="bg-purple-600/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-purple-400">
                 <i data-lucide="user" class="w-6 h-6"></i>
             </div>
-            <h3 class="text-lg font-bold text-white">수업 참가를 위해 이름을 입력하세요</h3>
-            <input type="text" id="studentNameInput" placeholder="예: 2학년 1반 김철수" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-            <button onclick="saveStudentName()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-purple-600/30">게임 입장하기</button>
+            <h3 class="text-lg font-bold text-white">수업 참가를 위해 정보를 입력하세요</h3>
+            
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">학번 및 이름</label>
+                    <input type="text" id="studentNameInput" placeholder="예: 20101 김철수" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">교사 참여 코드 (4자리 숫자)</label>
+                    <input type="text" id="roomCodeInput" maxlength="4" placeholder="예: 7829" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base font-mono font-bold tracking-widest text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 text-center" />
+                </div>
+            </div>
+
+            <button onclick="saveStudentName()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-purple-600/30 active:scale-95 transition-all">게임 입장하기</button>
         </div>
     </div>
 
@@ -55,7 +66,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-300 bg-clip-text text-transparent">단어 유사도 추리 게임</h1>
-                    <p id="studentBadge" class="text-xs text-slate-400">참가자: 이름 설정 필요</p>
+                    <p id="studentBadge" class="text-xs text-slate-400">참가자: 정보 입력 필요</p>
                 </div>
             </div>
             <div class="flex items-center gap-3 text-xs bg-slate-950/60 border border-slate-800 px-3.5 py-2 rounded-xl">
@@ -150,6 +161,7 @@
         let isGameEnded = false;
         let isGameStartedByTeacher = false;
         let activeSessionId = null;
+        let activeServerRoomCode = "";
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
@@ -213,12 +225,10 @@
             listenFirebaseEvents();
         });
 
-        // 로컬 저장소 세션 복구 함수
         function restoreLocalSession(currentSessionId) {
             const savedSessionId = localStorage.getItem('wg_session_id');
             const savedName = localStorage.getItem('wg_student_name');
 
-            // 게임 세션 ID가 일치하는 경우에만 이전 내역 복구
             if (savedSessionId && savedSessionId === String(currentSessionId) && savedName) {
                 studentName = savedName;
                 document.getElementById('studentBadge').innerText = `참가자: ${studentName}`;
@@ -234,14 +244,12 @@
                     }
                 }
 
-                // Presence 서버 재등록
                 db.ref('presence/' + encodeURIComponent(studentName)).set({
                     name: studentName,
                     time: Date.now()
                 });
                 return true;
             } else {
-                // 세션이 다르거나 없다면 기존 캐시 정리
                 if (savedSessionId !== String(currentSessionId)) {
                     localStorage.removeItem('wg_student_name');
                     localStorage.removeItem('wg_my_attempts');
@@ -251,10 +259,24 @@
         }
 
         function saveStudentName() {
-            const val = document.getElementById('studentNameInput').value.trim();
-            if (!val) return;
-            studentName = val;
-            
+            const nameVal = document.getElementById('studentNameInput').value.trim();
+            const codeVal = document.getElementById('roomCodeInput').value.trim();
+
+            if (!nameVal) {
+                alert('학번과 이름을 입력해주세요.');
+                return;
+            }
+            if (!codeVal) {
+                alert('교사 참여 코드를 입력해주세요.');
+                return;
+            }
+
+            if (activeServerRoomCode && codeVal !== activeServerRoomCode) {
+                alert('교사 참여 코드가 올바르지 않습니다. 전자칠판의 코드를 다시 확인해주세요.');
+                return;
+            }
+
+            studentName = nameVal;
             localStorage.setItem('wg_student_name', studentName);
             if (activeSessionId) {
                 localStorage.setItem('wg_session_id', String(activeSessionId));
@@ -285,7 +307,8 @@
             localStorage.removeItem('wg_session_id');
 
             document.getElementById('studentNameInput').value = "";
-            document.getElementById('studentBadge').innerText = "참가자: 이름 설정 필요";
+            document.getElementById('roomCodeInput').value = "";
+            document.getElementById('studentBadge').innerText = "참가자: 정보 입력 필요";
             document.getElementById('waitStartModal').classList.add('hidden');
             document.getElementById('winModal').classList.add('hidden');
             document.getElementById('gameOverModal').classList.add('hidden');
@@ -371,7 +394,12 @@
         }
 
         function listenFirebaseEvents() {
-            // 교사의 resetTrigger(게임 세션 ID) 감지
+            db.ref('gameState/roomCode').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    activeServerRoomCode = snapshot.val();
+                }
+            });
+
             db.ref('gameState/resetTrigger').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     const sessionId = snapshot.val();
