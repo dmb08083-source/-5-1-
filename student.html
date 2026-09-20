@@ -281,6 +281,11 @@
                 return;
             }
 
+            // 새로운 입장 시 승리 모달 및 이전 정답 상태 완전 초기화
+            document.getElementById('winModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            isGameEnded = false;
+
             studentName = nameVal;
             localStorage.setItem('wg_student_name', studentName);
             localStorage.setItem('wg_room_code', codeVal);
@@ -446,6 +451,7 @@
                 }
             });
 
+            // 정답자 발생 이벤트 실시간 감지
             db.ref('gameState/winner').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     const winnerInfo = snapshot.val();
@@ -462,6 +468,9 @@
 
                     document.getElementById('winModal').classList.remove('hidden');
                     if (window.confetti) confetti({ particleCount: 120, spread: 80 });
+                } else {
+                    // winner 노드가 삭제/초기화된 경우 팝업 닫기
+                    document.getElementById('winModal').classList.add('hidden');
                 }
             });
 
@@ -481,12 +490,13 @@
                 }
             });
 
-            // 오늘 수업 완전히 종료 처리 시
             db.ref('gameState/isRevealed').on('value', (snapshot) => {
                 if (snapshot.exists() && snapshot.val() === true) {
                     isGameEnded = true;
                     document.getElementById('finalTargetWord').innerText = currentTargetWord;
                     document.getElementById('gameOverModal').classList.remove('hidden');
+                } else {
+                    document.getElementById('gameOverModal').classList.add('hidden');
                 }
             });
         }
